@@ -11,7 +11,7 @@ Written by  **[AWS Consultants - Casey Labs Inc.] (http://www.caseylabs.com)**
 
 **How it works:**
 ebs-snapshot.sh will:
-- Determine the instance ID of the EC2 server on which the script runs
+- search for list of instances with tag Backup=True
 - Gather a list of all volume IDs attached to that instance
 - Take a snapshot of each attached volume
 - The script will then delete all associated snapshots taken by the script that are older than 7 days
