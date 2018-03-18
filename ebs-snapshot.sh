@@ -6,16 +6,12 @@ export PATH=$PATH:/usr/local/bin/:/usr/bin
 set -ue
 set -o pipefail
 
-## Automatic EBS Volume Snapshot Creation & Clean-Up Script
+## Automatic EBS Volume Snapshot Creation & Clean-Up Script for Ttagged resources
 #
-# Written by Casey Labs Inc. (https://www.caseylabs.com)
-# Contact us for all your Amazon Web Services Consulting needs!
-# Script Github repo: https://github.com/CaseyLabs/aws-ec2-ebs-automatic-snapshot-bash
-#
-# Additonal credits: Log function by Alan Franzoni; Pre-req check by Colin Johnson
+# Inspired by Github repo: https://github.com/CaseyLabs/aws-ec2-ebs-automatic-snapshot-bash
 #
 # PURPOSE: This Bash script can be used to take automatic snapshots of your Linux EC2 instance. Script process:
-# - Determine the instance ID of the EC2 server on which the script runs
+# - search for list of instances with tag specific tag (Backup=True)
 # - Gather a list of all volume IDs attached to that instance
 # - Take a snapshot of each attached volume
 # - The script will then delete all associated snapshots taken by the script that are older than 7 days
@@ -27,8 +23,6 @@ set -o pipefail
 
 ## Variable Declartions ##
 
-# Get Instance Details
-instance_id=$(wget -q -O- http://169.254.169.254/latest/meta-data/instance-id)
 region=$(wget -q -O- http://169.254.169.254/latest/meta-data/placement/availability-zone | sed -e 's/\([1-9]\).$/\1/g')
 
 # Set Logging Options
@@ -43,7 +37,11 @@ retention_date_in_seconds=$(date +%s --date "$retention_days days ago")
 ## Function Declarations ##
 
 # Function: Setup logfile and redirect stdout/stderr.
-log_setup() {
+function get_instances {
+	# Get Instances Details
+	instances_id=$(aws ec2 describe-instances --filters "Name=tag:Backup,Values=True" --query 'Reservations[*].Instances[*].{ID:InstanceId}' --profile stg --output text)
+}
+function log_setup() {
     # Check if logfile exists and is writable.
     ( [ -e "$logfile" ] || touch "$logfile" ) && [ ! -w "$logfile" ] && echo "ERROR: Cannot write to $logfile. Check permissions or sudo access." && exit 1
 
@@ -53,12 +51,12 @@ log_setup() {
 }
 
 # Function: Log an event.
-log() {
+function log() {
     echo "[$(date +"%Y-%m-%d"+"%T")]: $*"
 }
 
 # Function: Confirm that the AWS CLI and related tools are installed.
-prerequisite_check() {
+function prerequisite_check() {
 	for prerequisite in aws wget; do
 		hash $prerequisite &> /dev/null
 		if [[ $? == 1 ]]; then
@@ -68,7 +66,7 @@ prerequisite_check() {
 }
 
 # Function: Snapshot all volumes attached to this instance.
-snapshot_volumes() {
+function snapshot_volumes() {
 	for volume_id in $volume_list; do
 		log "Volume ID is $volume_id"
 
@@ -88,7 +86,7 @@ snapshot_volumes() {
 }
 
 # Function: Cleanup all snapshots associated with this instance that are older than $retention_days
-cleanup_snapshots() {
+function cleanup_snapshots() {
 	for volume_id in $volume_list; do
 		snapshot_list=$(aws ec2 describe-snapshots --region $region --output=text --filters "Name=volume-id,Values=$volume_id" "Name=tag:CreatedBy,Values=AutomatedBackup" --query Snapshots[].SnapshotId)
 		for snapshot in $snapshot_list; do
@@ -114,8 +112,11 @@ cleanup_snapshots() {
 log_setup
 prerequisite_check
 
-# Grab all volume IDs attached to this instance
-volume_list=$(aws ec2 describe-volumes --region $region --filters Name=attachment.instance-id,Values=$instance_id --query Volumes[].VolumeId --output text)
+get_instances
 
-snapshot_volumes
+for instance in $instances_id ; do
+# Grab all volume IDs attached to this instance
+	volume_list=$(aws ec2 describe-volumes --region $region --filters Name=attachment.instance-id,Values=$instance_id --query Volumes[].VolumeId --output text)
+	snapshot_volumes
+done
 cleanup_snapshots
