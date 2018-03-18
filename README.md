@@ -1,17 +1,12 @@
-aws-ec2-ebs-automatic-snapshot-bash
+aws-ec2-ebs-automatic-snapshot-bash - for tagged instances
 ===================================
 
 #### Bash script for Automatic EBS Snapshots and Cleanup on Amazon Web Services (AWS)
-
-Written by  **[AWS Consultants - Casey Labs Inc.] (http://www.caseylabs.com)**
-
-*Contact us for all your Amazon Web Services consulting needs!*
-
-===================================
+Pls note that this script need to execute from extenral server and it will run automat backup for all instances with spasific tag (Backup=True)
 
 **How it works:**
 ebs-snapshot.sh will:
-- search for list of instances with tag Backup=True
+- search for list of instances with tag specific tag (Backup=True)
 - Gather a list of all volume IDs attached to that instance
 - Take a snapshot of each attached volume
 - The script will then delete all associated snapshots taken by the script that are older than 7 days
@@ -73,25 +68,4 @@ Default output format: (Enter "text".)```
 ```
 <br />
 
-**Install Script**: Download the latest version of the snapshot script and make it executable:
-```
-cd ~
-wget https://raw.githubusercontent.com/CaseyLabs/aws-ec2-ebs-automatic-snapshot-bash/master/ebs-snapshot.sh
-chmod +x ebs-snapshot.sh
-mkdir -p /opt/aws
-sudo mv ebs-snapshot.sh /opt/aws/
-```
-
-You should then setup a cron job in order to schedule a nightly backup. Example crontab jobs:
-```
-55 22 * * * root  AWS_CONFIG_FILE="/root/.aws/config" /opt/aws/ebs-snapshot.sh
-
-# Or written another way:
-AWS_CONFIG_FILE="/root/.aws/config" 
-55 22 * * * root  /opt/aws/ebs-snapshot.sh
-```
-
-To manually test the script:
-```
-sudo /opt/aws/ebs-snapshot.sh
-```
+**Install Script**: Download the latest version of the snapshot script and make it executable.
